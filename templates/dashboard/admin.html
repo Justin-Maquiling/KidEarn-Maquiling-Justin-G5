@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Administrator dashboard | KidEarn{% endblock %}
+{% block content %}
+<h1>Administrator dashboard</h1>
+  <p>Welcome, {{ request.user.get_full_name|default:request.user.username }}. Manage KidEarn accounts and site settings from this administrator area.</p>
+  <p><a href="{% url 'admin:index' %}">Open site administration</a></p>
+  <p><a href="{% url 'accounts:profile' %}">View your profile</a></p>
+{% endblock %}

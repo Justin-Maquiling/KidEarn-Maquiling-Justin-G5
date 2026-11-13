@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Create account | KidEarn{% endblock %}
+{% block content %}
+<h1>Create your KidEarn account</h1>
+  <p>Register as a parent or kid. Administrator accounts are created by a site administrator.</p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<span>{{ field.help_text|safe }}</span>{% endif %}
+      {{ field.errors }}
+    {% endfor %}
+    <p><button type="submit">Create account</button></p>
+  </form>
+  <p>Already registered? <a href="{% url 'accounts:login' %}">Log in</a></p>
+{% endblock %}

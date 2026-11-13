@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}KidEarn{% endblock %}</title>
+</head>
+<body>
+  <p><a href="{% url 'dashboard:home' %}">KidEarn</a></p>
+  {% if user.is_authenticated %}
+    <p><a href="{% url 'accounts:profile' %}">My profile</a></p>
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit">Log out</button>
+    </form>
+  {% else %}
+    <p><a href="{% url 'accounts:login' %}">Log in</a></p>
+    <p><a href="{% url 'accounts:register' %}">Create account</a></p>
+  {% endif %}
+  {% if messages %}
+    <ul>
+      {% for message in messages %}
+        <li>{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% block content %}{% endblock %}
+</body>
+</html>

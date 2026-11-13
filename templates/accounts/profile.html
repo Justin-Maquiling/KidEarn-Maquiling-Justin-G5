@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}My profile | KidEarn{% endblock %}
+{% block content %}
+<h1>My profile</h1>
+  <p>Account role: <strong>{{ request.user.profile.get_role_display }}</strong></p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {{ field.errors }}
+    {% endfor %}
+    <p><button type="submit">Save changes</button></p>
+  </form>
+{% endblock %}

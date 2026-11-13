@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Kid dashboard | KidEarn{% endblock %}
+{% block content %}
+<h1>My KidEarn dashboard</h1>
+  <p>Hi, {{ request.user.first_name|default:request.user.username }}! This is your space to build good money habits and keep track of your goals.</p>
+  <p>Ask your parent or guardian to help you with your KidEarn activities.</p>
+  <p><a href="{% url 'accounts:profile' %}">Manage my profile</a></p>
+{% endblock %}
