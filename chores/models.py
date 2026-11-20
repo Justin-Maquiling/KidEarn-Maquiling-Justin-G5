@@ -73,6 +73,9 @@ class Chore(models.Model):
         choices=Status.choices,
         default=Status.OPEN,
     )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -91,3 +94,36 @@ class Chore(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.family_link.child.username})"
+
+
+class WalletEntry(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wallet_entries",
+    )
+    chore = models.OneToOneField(
+        Chore,
+        on_delete=models.PROTECT,
+        related_name="wallet_entry",
+    )
+    amount = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        validators=(MinValueValidator(Decimal("0.01")),),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def clean(self):
+        super().clean()
+        if self.chore_id:
+            if self.user_id != self.chore.family_link.child_id:
+                raise ValidationError({"user": "A chore reward must belong to its assigned kid."})
+            if self.amount != self.chore.reward_amount:
+                raise ValidationError({"amount": "The reward must match the chore's reward amount."})
+
+    def __str__(self):
+        return f"{self.user.username}: {self.amount} for {self.chore.title}"

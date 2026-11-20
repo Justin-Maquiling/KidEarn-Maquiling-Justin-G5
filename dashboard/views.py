@@ -1,9 +1,12 @@
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 
 from chores.forms import FamilyLinkForm
-from chores.models import Chore, FamilyLink
+from chores.models import Chore, FamilyLink, WalletEntry
 
 
 def _role_for(user):
@@ -43,7 +46,6 @@ def parent_dashboard(request):
         {
             "chores": chores,
             "family_links": family_links,
-            "link_form": FamilyLinkForm(parent=request.user),
         },
     )
 
@@ -56,4 +58,14 @@ def kid_dashboard(request):
         Chore.objects.filter(family_link__child=request.user)
         .select_related("created_by")
     )
-    return render(request, "dashboard/kid.html", {"chores": chores})
+    wallet_entries = WalletEntry.objects.filter(user=request.user).select_related("chore")
+    wallet_balance = wallet_entries.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    return render(
+        request,
+        "dashboard/kid.html",
+        {
+            "chores": chores,
+            "wallet_entries": wallet_entries,
+            "wallet_balance": wallet_balance,
+        },
+    )

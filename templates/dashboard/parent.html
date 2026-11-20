@@ -34,6 +34,12 @@
             — {{ chore.get_status_display }} — reward {{ chore.reward_amount }}
             — due {{ chore.due_date }}
             <p>{{ chore.description }}</p>
+            {% if chore.review_note %}
+              <p>Message to kid: {{ chore.review_note }}</p>
+            {% endif %}
+            {% if chore.status == "submitted" %}
+              <a href="{% url 'chores:review' chore.pk %}">Review submission</a>
+            {% endif %}
             {% if chore.status == "open" or chore.status == "rejected" %}
               <a href="{% url 'chores:update' chore.pk %}">Edit</a>
               <form method="post" action="{% url 'chores:delete' chore.pk %}">
