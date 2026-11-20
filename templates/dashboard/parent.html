@@ -5,4 +5,47 @@
   <p>Welcome, {{ request.user.get_full_name|default:request.user.username }}. This is your family space to guide your child's earning and savings journey.</p>
   <p>Use your profile to keep your contact details up to date.</p>
   <p><a href="{% url 'accounts:profile' %}">Manage my profile</a></p>
+
+  <section>
+    <h2>Linked kids</h2>
+    {% if family_links %}
+      <ul>
+        {% for link in family_links %}
+          <li>{{ link.child.get_full_name|default:link.child.username }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>Link your child's existing KidEarn account to assign chores.</p>
+    {% endif %}
+    <p><a href="{% url 'chores:link_child' %}">Link a kid account</a></p>
+  </section>
+
+  <section>
+    <h2>Chores</h2>
+    {% if family_links %}
+      <p><a href="{% url 'chores:create' %}">Assign a chore</a></p>
+    {% endif %}
+    {% if chores %}
+      <ul>
+        {% for chore in chores %}
+          <li>
+            <strong>{{ chore.title }}</strong>
+            for {{ chore.family_link.child.get_full_name|default:chore.family_link.child.username }}
+            — {{ chore.get_status_display }} — reward {{ chore.reward_amount }}
+            — due {{ chore.due_date }}
+            <p>{{ chore.description }}</p>
+            {% if chore.status == "open" or chore.status == "rejected" %}
+              <a href="{% url 'chores:update' chore.pk %}">Edit</a>
+              <form method="post" action="{% url 'chores:delete' chore.pk %}">
+                {% csrf_token %}
+                <button type="submit">Delete</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No chores assigned yet.</p>
+    {% endif %}
+  </section>
 {% endblock %}
