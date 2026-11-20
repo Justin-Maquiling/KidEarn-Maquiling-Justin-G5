@@ -2,6 +2,9 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 
+from chores.forms import FamilyLinkForm
+from chores.models import Chore, FamilyLink
+
 
 def _role_for(user):
     if user.is_staff:
@@ -29,11 +32,28 @@ def admin_dashboard(request):
 def parent_dashboard(request):
     if _role_for(request.user) != "parent":
         return HttpResponseForbidden("This dashboard is for parents.")
-    return render(request, "dashboard/parent.html")
+    chores = (
+        Chore.objects.filter(created_by=request.user)
+        .select_related("family_link__child")
+    )
+    family_links = FamilyLink.objects.filter(parent=request.user).select_related("child")
+    return render(
+        request,
+        "dashboard/parent.html",
+        {
+            "chores": chores,
+            "family_links": family_links,
+            "link_form": FamilyLinkForm(parent=request.user),
+        },
+    )
 
 
 @login_required
 def kid_dashboard(request):
     if _role_for(request.user) != "kid":
         return HttpResponseForbidden("This dashboard is for kids.")
-    return render(request, "dashboard/kid.html")
+    chores = (
+        Chore.objects.filter(family_link__child=request.user)
+        .select_related("created_by")
+    )
+    return render(request, "dashboard/kid.html", {"chores": chores})
