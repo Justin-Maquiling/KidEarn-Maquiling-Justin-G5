@@ -58,3 +58,31 @@ class ChoreForm(forms.ModelForm):
         if due_date < timezone.localdate():
             raise ValidationError("The due date cannot be in the past.")
         return due_date
+
+
+class ChoreReviewForm(forms.Form):
+    class Decision:
+        APPROVE = "approve"
+        REJECT = "reject"
+
+    action = forms.ChoiceField(
+        choices=(
+            (Decision.APPROVE, "Approve and award reward"),
+            (Decision.REJECT, "Request changes"),
+        ),
+        label="Decision",
+    )
+    review_note = forms.CharField(
+        required=False,
+        label="Message to the kid",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if (
+            cleaned_data.get("action") == self.Decision.REJECT
+            and not cleaned_data.get("review_note", "").strip()
+        ):
+            self.add_error("review_note", "Explain what needs to be corrected.")
+        return cleaned_data
