@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} | KidEarn{% endblock %}
+{% block content %}
+<h1>{{ page_title }}</h1>
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {% for field in form %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}
+    {{ field.errors }}
+  {% endfor %}
+  <p><button type="submit">{{ submit_label }}</button></p>
+</form>
+<p><a href="{% url 'dashboard:parent' %}">Back to dashboard</a></p>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Link a kid account | KidEarn{% endblock %}
+{% block content %}
+<h1>Link a kid account</h1>
+<p>Enter the username of an existing account registered with the Kid role.</p>
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {% for field in form %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}
+    {{ field.errors }}
+  {% endfor %}
+  <p><button type="submit">Link account</button></p>
+</form>
+<p><a href="{% url 'dashboard:parent' %}">Back to dashboard</a></p>
+{% endblock %}
