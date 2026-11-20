@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from accounts.models import Profile
 
-from .models import Chore, FamilyLink
+from .models import Chore, FamilyLink, WalletEntry
 
 
 class ChoreManagementTests(TestCase):
@@ -150,5 +150,153 @@ class ChoreManagementTests(TestCase):
         self.assertEqual(self.client.get(reverse("chores:create")).status_code, 403)
         self.assertEqual(
             self.client.post(reverse("chores:link_child")).status_code,
+            403,
+        )
+
+
+class ChoreReviewTests(TestCase):
+    def create_user(self, username, role):
+        user = User.objects.create_user(username=username, password="SafePass2026!")
+        Profile.objects.create(user=user, role=role)
+        return user
+
+    def setUp(self):
+        self.parent = self.create_user("review_parent", Profile.Role.PARENT)
+        self.kid = self.create_user("review_kid", Profile.Role.KID)
+        self.link = FamilyLink.objects.create(parent=self.parent, child=self.kid)
+        self.chore = Chore.objects.create(
+            created_by=self.parent,
+            family_link=self.link,
+            title="Water plants",
+            description="Water the garden plants.",
+            due_date=timezone.localdate() + timedelta(days=1),
+            reward_amount=Decimal("25.00"),
+        )
+
+    def test_child_submission_parent_rework_and_approval_award_one_reward(self):
+        self.client.force_login(self.kid)
+        submit_response = self.client.post(
+            reverse("chores:submit", args=(self.chore.pk,))
+        )
+        self.assertRedirects(submit_response, reverse("dashboard:kid"))
+        self.chore.refresh_from_db()
+        self.assertEqual(self.chore.status, Chore.Status.SUBMITTED)
+        self.assertIsNotNone(self.chore.submitted_at)
+
+        self.client.force_login(self.parent)
+        forbidden_edit = self.client.get(reverse("chores:update", args=(self.chore.pk,)))
+        forbidden_delete = self.client.post(reverse("chores:delete", args=(self.chore.pk,)))
+        self.assertEqual(forbidden_edit.status_code, 403)
+        self.assertEqual(forbidden_delete.status_code, 403)
+
+        invalid_rejection = self.client.post(
+            reverse("chores:review", args=(self.chore.pk,)),
+            {"action": "reject", "review_note": "  "},
+        )
+        self.assertContains(invalid_rejection, "Explain what needs to be corrected.")
+        self.chore.refresh_from_db()
+        self.assertEqual(self.chore.status, Chore.Status.SUBMITTED)
+        self.assertFalse(WalletEntry.objects.filter(chore=self.chore).exists())
+
+        rejected = self.client.post(
+            reverse("chores:review", args=(self.chore.pk,)),
+            {"action": "reject", "review_note": "Please water all the plants."},
+        )
+        self.assertRedirects(rejected, reverse("dashboard:parent"))
+        self.chore.refresh_from_db()
+        self.assertEqual(self.chore.status, Chore.Status.REJECTED)
+        self.assertEqual(self.chore.review_note, "Please water all the plants.")
+        self.assertIsNotNone(self.chore.reviewed_at)
+        self.assertFalse(WalletEntry.objects.filter(chore=self.chore).exists())
+
+        self.client.force_login(self.kid)
+        self.assertContains(
+            self.client.get(reverse("dashboard:kid")),
+            "Please water all the plants.",
+        )
+        resubmitted = self.client.post(
+            reverse("chores:submit", args=(self.chore.pk,))
+        )
+        self.assertRedirects(resubmitted, reverse("dashboard:kid"))
+        self.chore.refresh_from_db()
+        self.assertEqual(self.chore.status, Chore.Status.SUBMITTED)
+        self.assertIsNone(self.chore.reviewed_at)
+
+        self.client.force_login(self.parent)
+        approved = self.client.post(
+            reverse("chores:review", args=(self.chore.pk,)),
+            {"action": "approve", "review_note": ""},
+        )
+        self.assertRedirects(approved, reverse("dashboard:parent"))
+        self.chore.refresh_from_db()
+        self.assertEqual(self.chore.status, Chore.Status.APPROVED)
+        self.assertEqual(WalletEntry.objects.filter(chore=self.chore).count(), 1)
+        self.assertEqual(self.chore.wallet_entry.user, self.kid)
+        self.assertEqual(self.chore.wallet_entry.amount, Decimal("25.00"))
+
+        repeated_review = self.client.post(
+            reverse("chores:review", args=(self.chore.pk,)),
+            {"action": "approve", "review_note": ""},
+        )
+        self.assertEqual(repeated_review.status_code, 403)
+        self.assertEqual(WalletEntry.objects.filter(chore=self.chore).count(), 1)
+
+        self.client.force_login(self.kid)
+        other_parent = self.create_user("wallet_parent", Profile.Role.PARENT)
+        other_kid = self.create_user("wallet_kid", Profile.Role.KID)
+        other_link = FamilyLink.objects.create(parent=other_parent, child=other_kid)
+        other_chore = Chore.objects.create(
+            created_by=other_parent,
+            family_link=other_link,
+            title="Private reward",
+            description="Another kid's approved chore.",
+            due_date=timezone.localdate() + timedelta(days=1),
+            reward_amount=Decimal("10.00"),
+            status=Chore.Status.APPROVED,
+        )
+        WalletEntry.objects.create(
+            user=other_kid,
+            chore=other_chore,
+            amount=other_chore.reward_amount,
+        )
+        wallet = self.client.get(reverse("dashboard:kid"))
+        self.assertContains(wallet, "Approved rewards: 25.00")
+        self.assertContains(wallet, "Water plants")
+        self.assertNotContains(wallet, "Private reward")
+
+    def test_only_assigned_kid_and_creating_parent_can_submit_or_review(self):
+        other_parent = self.create_user("other_review_parent", Profile.Role.PARENT)
+        other_kid = self.create_user("other_review_kid", Profile.Role.KID)
+        other_link = FamilyLink.objects.create(parent=other_parent, child=other_kid)
+        other_chore = Chore.objects.create(
+            created_by=other_parent,
+            family_link=other_link,
+            title="Other chore",
+            description="Not this family's chore.",
+            due_date=timezone.localdate() + timedelta(days=1),
+            reward_amount=Decimal("10.00"),
+            status=Chore.Status.SUBMITTED,
+        )
+
+        self.client.force_login(self.kid)
+        self.assertEqual(
+            self.client.post(reverse("chores:submit", args=(other_chore.pk,))).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("chores:review", args=(self.chore.pk,)),
+                {"action": "approve"},
+            ).status_code,
+            403,
+        )
+
+        self.client.force_login(self.parent)
+        self.assertEqual(
+            self.client.get(reverse("chores:review", args=(other_chore.pk,))).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post(reverse("chores:submit", args=(self.chore.pk,))).status_code,
             403,
         )

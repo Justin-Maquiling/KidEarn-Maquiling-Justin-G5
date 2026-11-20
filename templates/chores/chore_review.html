@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Review chore | KidEarn{% endblock %}
+{% block content %}
+<h1>Review chore submission</h1>
+<h2>{{ chore.title }}</h2>
+<p>Kid: {{ chore.family_link.child.get_full_name|default:chore.family_link.child.username }}</p>
+<p>Reward: {{ chore.reward_amount }}</p>
+<p>Due: {{ chore.due_date }}</p>
+<p>{{ chore.description }}</p>
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {% for field in form %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}
+    {{ field.errors }}
+  {% endfor %}
+  <p><button type="submit">Save review</button></p>
+</form>
+<p><a href="{% url 'dashboard:parent' %}">Back to dashboard</a></p>
+{% endblock %}
