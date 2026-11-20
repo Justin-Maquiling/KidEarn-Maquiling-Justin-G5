@@ -4,6 +4,19 @@
 <h1>My KidEarn dashboard</h1>
   <p>Hi, {{ request.user.first_name|default:request.user.username }}! This is your space to build good money habits and keep track of your goals.</p>
   <p><a href="{% url 'accounts:profile' %}">Manage my profile</a></p>
+  <section>
+    <h2>My wallet</h2>
+    <p>Approved rewards: {{ wallet_balance|floatformat:2 }}</p>
+    {% if wallet_entries %}
+      <ul>
+        {% for entry in wallet_entries %}
+          <li>{{ entry.created_at|date:"M j, Y" }} — {{ entry.amount }} for {{ entry.chore.title }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No rewards have been approved yet.</p>
+    {% endif %}
+  </section>
   <h2>My chores</h2>
   {% if chores %}
     <ul>
@@ -12,6 +25,17 @@
           <strong>{{ chore.title }}</strong> — {{ chore.get_status_display }}
           — reward {{ chore.reward_amount }} — due {{ chore.due_date }}
           <p>{{ chore.description }}</p>
+          {% if chore.review_note %}
+            <p>Parent feedback: {{ chore.review_note }}</p>
+          {% endif %}
+          {% if chore.status == "open" or chore.status == "rejected" %}
+            <form method="post" action="{% url 'chores:submit' chore.pk %}">
+              {% csrf_token %}
+              <button type="submit">Submit completed chore</button>
+            </form>
+          {% elif chore.status == "submitted" %}
+            <p>Waiting for your parent to review this chore.</p>
+          {% endif %}
         </li>
       {% endfor %}
     </ul>
