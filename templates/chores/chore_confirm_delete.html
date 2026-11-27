@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Delete chore | KidEarn{% endblock %}
+{% block content %}
+<h1>Delete chore?</h1>
+<p>Are you sure you want to delete “{{ chore.title }}” for {{ chore.family_link.child.get_full_name|default:chore.family_link.child.username }}?</p>
+<form method="post">
+  {% csrf_token %}
+  <button type="submit">Yes, delete chore</button>
+</form>
+<p><a href="{% url 'dashboard:parent' %}">Cancel and return to dashboard</a></p>
+{% endblock %}
