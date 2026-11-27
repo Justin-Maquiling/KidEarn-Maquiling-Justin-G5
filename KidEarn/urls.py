@@ -23,3 +23,6 @@ urlpatterns = [
     path("chores/", include("chores.urls")),
     path("", include("dashboard.urls")),
 ]
+
+handler404 = "KidEarn.error_views.custom_404"
+handler500 = "KidEarn.error_views.custom_500"
