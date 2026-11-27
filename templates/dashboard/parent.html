@@ -42,10 +42,7 @@
             {% endif %}
             {% if chore.status == "open" or chore.status == "rejected" %}
               <a href="{% url 'chores:update' chore.pk %}">Edit</a>
-              <form method="post" action="{% url 'chores:delete' chore.pk %}">
-                {% csrf_token %}
-                <button type="submit">Delete</button>
-              </form>
+              <a href="{% url 'chores:delete' chore.pk %}">Delete</a>
             {% endif %}
           </li>
         {% endfor %}

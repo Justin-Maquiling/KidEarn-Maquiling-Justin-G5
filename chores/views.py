@@ -1,10 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.models import Profile
 
@@ -27,9 +28,17 @@ def link_child(request):
     if not _is_parent(request.user):
         return HttpResponseForbidden("Only parents can link kid accounts.")
 
-    form = FamilyLinkForm(request.POST or None, parent=request.user)
+    form = FamilyLinkForm(
+        request.POST if request.method == "POST" else None,
+        parent=request.user,
+    )
     if request.method == "POST" and form.is_valid():
-        form.save()
+        try:
+            with transaction.atomic():
+                form.save()
+        except IntegrityError:
+            form.add_error("child_username", "That kid account is already linked to a parent.")
+            return render(request, "chores/link_child.html", {"form": form})
         messages.success(request, "Kid account linked successfully.")
         return redirect("dashboard:parent")
     return render(request, "chores/link_child.html", {"form": form})
@@ -40,12 +49,24 @@ def chore_create(request):
     if not _is_parent(request.user):
         return HttpResponseForbidden("Only parents can create chores.")
 
-    form = ChoreForm(request.POST or None, parent=request.user)
+    form = ChoreForm(
+        request.POST if request.method == "POST" else None,
+        parent=request.user,
+    )
     if request.method == "POST" and form.is_valid():
-        chore = form.save(commit=False)
-        chore.created_by = request.user
-        chore.full_clean()
-        chore.save()
+        try:
+            with transaction.atomic():
+                chore = form.save(commit=False)
+                chore.created_by = request.user
+                chore.full_clean()
+                chore.save()
+        except ValidationError as error:
+            form.add_error(None, error)
+            return render(
+                request,
+                "chores/chore_form.html",
+                {"form": form, "page_title": "Assign a chore", "submit_label": "Assign chore"},
+            )
         messages.success(request, "Chore assigned successfully.")
         return redirect("dashboard:parent")
     return render(
@@ -63,13 +84,26 @@ def chore_update(request, pk):
     if chore.status not in (Chore.Status.OPEN, Chore.Status.REJECTED):
         return HttpResponseForbidden("This chore can no longer be edited.")
 
-    form = ChoreForm(request.POST or None, instance=chore, parent=request.user)
+    form = ChoreForm(
+        request.POST if request.method == "POST" else None,
+        instance=chore,
+        parent=request.user,
+    )
     if request.method == "POST" and form.is_valid():
-        chore = form.save(commit=False)
-        if chore.status == Chore.Status.REJECTED:
-            chore.status = Chore.Status.OPEN
-        chore.full_clean()
-        chore.save()
+        try:
+            with transaction.atomic():
+                chore = form.save(commit=False)
+                if chore.status == Chore.Status.REJECTED:
+                    chore.status = Chore.Status.OPEN
+                chore.full_clean()
+                chore.save()
+        except ValidationError as error:
+            form.add_error(None, error)
+            return render(
+                request,
+                "chores/chore_form.html",
+                {"form": form, "page_title": "Edit chore", "submit_label": "Save changes"},
+            )
         messages.success(request, "Chore updated successfully.")
         return redirect("dashboard:parent")
     return render(
@@ -80,13 +114,15 @@ def chore_update(request, pk):
 
 
 @login_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 def chore_delete(request, pk):
     if not _is_parent(request.user):
         return HttpResponseForbidden("Only parents can delete chores.")
     chore = get_object_or_404(Chore, pk=pk, created_by=request.user)
     if chore.status not in (Chore.Status.OPEN, Chore.Status.REJECTED):
         return HttpResponseForbidden("Submitted or approved chores cannot be deleted.")
+    if request.method == "GET":
+        return render(request, "chores/chore_confirm_delete.html", {"chore": chore})
     chore.delete()
     messages.success(request, "Chore deleted successfully.")
     return redirect("dashboard:parent")
@@ -127,7 +163,7 @@ def chore_review(request, pk):
     if chore.status != Chore.Status.SUBMITTED:
         return HttpResponseForbidden("This chore has no submission to review.")
 
-    form = ChoreReviewForm(request.POST or None)
+    form = ChoreReviewForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             chore = get_object_or_404(

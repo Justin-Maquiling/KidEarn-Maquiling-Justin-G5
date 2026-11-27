@@ -83,7 +83,11 @@ class ChoreManagementTests(TestCase):
         self.assertEqual(chore.title, "Tidy the bedroom")
         self.assertEqual(chore.reward_amount, Decimal("35.00"))
 
-        delete_response = self.client.post(reverse("chores:delete", args=(chore.pk,)))
+        delete_url = reverse("chores:delete", args=(chore.pk,))
+        confirmation = self.client.get(delete_url)
+        self.assertContains(confirmation, "Are you sure you want to delete")
+        self.assertTrue(Chore.objects.filter(pk=chore.pk).exists())
+        delete_response = self.client.post(delete_url)
         self.assertRedirects(delete_response, reverse("dashboard:parent"))
         self.assertFalse(Chore.objects.filter(pk=chore.pk).exists())
 
@@ -130,6 +134,30 @@ class ChoreManagementTests(TestCase):
         self.assertContains(response, "The due date cannot be in the past.")
         self.assertContains(response, "Ensure this value is greater than or equal to 0.01.")
         self.assertFalse(Chore.objects.filter(title="Invalid chore").exists())
+
+    def test_empty_chore_submission_is_bound_and_reports_required_fields(self):
+        response = self.client.post(reverse("chores:create"), {})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("title", response.context["form"].errors)
+        self.assertIn("description", response.context["form"].errors)
+        self.assertIn("due_date", response.context["form"].errors)
+        self.assertIn("reward_amount", response.context["form"].errors)
+        self.assertFalse(Chore.objects.exists())
+
+    def test_all_chore_actions_require_login(self):
+        chore = self.create_chore(self.parent, self.link)
+        self.client.logout()
+        requests = (
+            self.client.get(reverse("chores:link_child")),
+            self.client.get(reverse("chores:create")),
+            self.client.get(reverse("chores:update", args=(chore.pk,))),
+            self.client.get(reverse("chores:delete", args=(chore.pk,))),
+            self.client.post(reverse("chores:submit", args=(chore.pk,))),
+            self.client.get(reverse("chores:review", args=(chore.pk,))),
+        )
+
+        self.assertTrue(all(response.status_code == 302 for response in requests))
 
     def test_kid_dashboard_only_shows_chores_assigned_to_that_kid(self):
         other_parent = self.create_user("parent_two", Profile.Role.PARENT)

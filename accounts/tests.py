@@ -1,6 +1,8 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
+
+from KidEarn.error_views import custom_500
 
 from .models import Profile
 
@@ -157,3 +159,18 @@ class RoleDashboardTests(TestCase):
             reverse("dashboard:admin"),
         )
         self.assertEqual(self.client.get(reverse("accounts:profile")).status_code, 200)
+
+
+class ErrorPageTests(TestCase):
+    @override_settings(DEBUG=False)
+    def test_unknown_url_uses_custom_404_page(self):
+        response = self.client.get("/not-a-real-page/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, "The page you requested does not exist.", status_code=404)
+
+    def test_server_error_handler_uses_custom_500_page(self):
+        response = custom_500(RequestFactory().get("/"))
+
+        self.assertEqual(response.status_code, 500)
+        self.assertContains(response, "We could not complete your request.", status_code=500)
