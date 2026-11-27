@@ -9,7 +9,7 @@
     {% for field in form %}
       <label for="{{ field.id_for_label }}">{{ field.label }}</label>
       {{ field }}
-      {% if field.help_text %}<span>{{ field.help_text|safe }}</span>{% endif %}
+      {% if field.help_text %}<span>{{ field.help_text }}</span>{% endif %}
       {{ field.errors }}
     {% endfor %}
     <p><button type="submit">Create account</button></p>
