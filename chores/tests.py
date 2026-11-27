@@ -83,7 +83,11 @@ class ChoreManagementTests(TestCase):
         self.assertEqual(chore.title, "Tidy the bedroom")
         self.assertEqual(chore.reward_amount, Decimal("35.00"))
 
-        delete_response = self.client.post(reverse("chores:delete", args=(chore.pk,)))
+        delete_url = reverse("chores:delete", args=(chore.pk,))
+        confirmation = self.client.get(delete_url)
+        self.assertContains(confirmation, "Are you sure you want to delete")
+        self.assertTrue(Chore.objects.filter(pk=chore.pk).exists())
+        delete_response = self.client.post(delete_url)
         self.assertRedirects(delete_response, reverse("dashboard:parent"))
         self.assertFalse(Chore.objects.filter(pk=chore.pk).exists())
 
