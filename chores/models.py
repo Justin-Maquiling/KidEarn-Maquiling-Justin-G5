@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import F, Q
 from django.utils import timezone
 
 from accounts.models import Profile
@@ -24,6 +25,12 @@ class FamilyLink(models.Model):
 
     class Meta:
         ordering = ("child__username",)
+        constraints = (
+            models.CheckConstraint(
+                condition=~Q(parent=F("child")),
+                name="family_link_parent_not_child",
+            ),
+        )
 
     def clean(self):
         super().clean()
@@ -52,7 +59,7 @@ class Chore(models.Model):
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="created_chores",
     )
     family_link = models.ForeignKey(
@@ -81,6 +88,16 @@ class Chore(models.Model):
 
     class Meta:
         ordering = ("due_date", "created_at")
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(reward_amount__gte=Decimal("0.01")),
+                name="chore_reward_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=("open", "submitted", "approved", "rejected")),
+                name="chore_status_valid",
+            ),
+        )
 
     def clean(self):
         super().clean()
@@ -116,6 +133,12 @@ class WalletEntry(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(amount__gte=Decimal("0.01")),
+                name="wallet_entry_amount_positive",
+            ),
+        )
 
     def clean(self):
         super().clean()
