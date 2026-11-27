@@ -60,16 +60,18 @@ Requirements: Python 3.12 or later and PostgreSQL.
 
 ## Tests
 
-The test suite can run with PostgreSQL credentials from `.env`. For an isolated
-SQLite test run in PowerShell:
+Run the full Django test suite with:
 
 ```powershell
 $env:DJANGO_SECRET_KEY = "local-test-key"
-$env:DJANGO_DEBUG = "True"
 $env:DB_ENGINE = "django.db.backends.sqlite3"
 $env:DB_NAME = ":memory:"
 python manage.py test
 ```
+
+The in-memory SQLite database is isolated to the test run; no PostgreSQL
+service is needed for these automated tests. Run `python manage.py check` to
+check the project configuration.
 
 ## Branch workflow
 
