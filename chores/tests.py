@@ -135,6 +135,30 @@ class ChoreManagementTests(TestCase):
         self.assertContains(response, "Ensure this value is greater than or equal to 0.01.")
         self.assertFalse(Chore.objects.filter(title="Invalid chore").exists())
 
+    def test_empty_chore_submission_is_bound_and_reports_required_fields(self):
+        response = self.client.post(reverse("chores:create"), {})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("title", response.context["form"].errors)
+        self.assertIn("description", response.context["form"].errors)
+        self.assertIn("due_date", response.context["form"].errors)
+        self.assertIn("reward_amount", response.context["form"].errors)
+        self.assertFalse(Chore.objects.exists())
+
+    def test_all_chore_actions_require_login(self):
+        chore = self.create_chore(self.parent, self.link)
+        self.client.logout()
+        requests = (
+            self.client.get(reverse("chores:link_child")),
+            self.client.get(reverse("chores:create")),
+            self.client.get(reverse("chores:update", args=(chore.pk,))),
+            self.client.get(reverse("chores:delete", args=(chore.pk,))),
+            self.client.post(reverse("chores:submit", args=(chore.pk,))),
+            self.client.get(reverse("chores:review", args=(chore.pk,))),
+        )
+
+        self.assertTrue(all(response.status_code == 302 for response in requests))
+
     def test_kid_dashboard_only_shows_chores_assigned_to_that_kid(self):
         other_parent = self.create_user("parent_two", Profile.Role.PARENT)
         other_kid = self.create_user("kid_two", Profile.Role.KID)
